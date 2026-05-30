@@ -1,0 +1,17 @@
+[Unit]
+Description=Already Done daily unsubscribed users report (SendGrid)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/root/alreadyapp-report-service
+EnvironmentFile=-/root/alreadyapp-report-service/.env
+ExecStart=/root/alreadyapp-report-service/.venv/bin/python daily_unsubscribed_report.py
+StandardOutput=append:/root/alreadyapp-report-service/logs/report.log
+StandardError=append:/root/alreadyapp-report-service/logs/report.log
+
+[Install]
+WantedBy=multi-user.target
