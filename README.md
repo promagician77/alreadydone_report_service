@@ -2,9 +2,9 @@
 
 Standalone Python service that queries Supabase and emails **one daily report** to a single client address via SendGrid. The report splits users into **3 marketing segments**, each with its own CSV attachment:
 
-1. **Paid subscribers** — active paid subscription (not trial)
-2. **Trial (not subscribed)** — on trial, or had trial/subscription but not currently paying
-3. **Never trial or subscription** — installed/signed up but never entered the subscription flow
+1. **Paid subscribers** — `rc_subscription_status` is `active` (and plan is not `trial`)
+2. **Trial (not subscribed)** — `rc_subscription_plan` is `trial`
+3. **Unsubscribed** — `rc_subscription_status` is `inactive`
 
 This runs as a **separate process** from the FastAPI backend (`alreadydone_backend`).
 
@@ -43,10 +43,8 @@ REPORT_DRY_RUN=true .venv/bin/python daily_unsubscribed_report.py
 
 ## Deploy on VPS (systemd timer)
 
-Recommended path on the server: `/root/alreadyapp-report-service`
-
 ```bash
-cd /root/alreadydone_report_service   # or your deploy path
+cd ~/alreadydone_report_service
 
 python3 -m venv venv
 venv/bin/pip install -r requirements.txt
@@ -73,37 +71,25 @@ tail -f logs/report.log
 
 ## Segment definitions
 
-Only users with a non-empty `email` are included.
+Only users with a non-empty `email` are included. Segments are **mutually exclusive** (checked in this order):
 
-### 1. Paid subscribers
+| Segment | Rule |
+|---------|------|
+| **Trial** | `rc_subscription_plan` is `trial` |
+| **Paid** | `rc_subscription_status` is `active` |
+| **Unsubscribed** | `rc_subscription_status` is `inactive` |
 
-- `rc_subscription_status` is `active`, or
-- legacy `subscription_status` is `active`
-
-### 2. Trial (not subscribed)
-
-Users who engaged with subscription but are **not** currently paying, including:
-
-- Currently on trial (`trial` / `trialing`)
-- Expired, canceled, billing issue, paused, etc.
-- Has `rc_customer_id` or `stripe_subscription_id` without active paid status
-
-Note: users who paid and later canceled are grouped here (no historical trial flag in the DB).
-
-### 3. Never trial or subscription
-
-- No meaningful subscription status
-- No `rc_customer_id` or `stripe_subscription_id`
+Users who do not match any rule (e.g. `expired`, `canceled`, empty status) are **not included** in the report.
 
 ## Email contents
 
-- **Subject:** `Already Done — User segments (YYYY-MM-DD) — N total (paid X, trial Y, never Z)`
+- **Subject:** `Already Done — User segments (YYYY-MM-DD) — N total (paid X, trial Y, unsubscribed Z)`
 - **Body:** HTML summary with 3 sections (first 25 rows each)
 - **Attachments:**
   - `paid_YYYY-MM-DD.csv`
-  - `trial_not_subscribed_YYYY-MM-DD.csv`
-  - `never_subscribed_YYYY-MM-DD.csv`
+  - `trial_YYYY-MM-DD.csv`
+  - `unsubscribed_YYYY-MM-DD.csv`
 
 ## Report columns (each CSV)
 
-- ID, Email, Name, RC Status, RC Plan, Stripe Status, Created At, Provider
+- ID, Email, Name, RC Status, RC Plan, Created At, Provider

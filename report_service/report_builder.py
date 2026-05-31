@@ -14,26 +14,20 @@ REPORT_COLUMNS = [
     ("name", "Name"),
     ("rc_subscription_status", "RC Status"),
     ("rc_subscription_plan", "RC Plan"),
-    ("subscription_status", "Stripe Status"),
     ("created_at", "Created At"),
     ("subscription_provider", "Provider"),
 ]
 
 SEGMENT_LABELS: dict[SegmentName, str] = {
     "paid": "Paid subscribers",
-    "trial_not_subscribed": "Trial (not subscribed)",
-    "never_subscribed": "Never trial or subscription",
+    "trial": "Trial (not subscribed)",
+    "unsubscribed": "Unsubscribed",
 }
 
 SEGMENT_DESCRIPTIONS: dict[SegmentName, str] = {
-    "paid": "Users with an active paid subscription (not trial).",
-    "trial_not_subscribed": (
-        "Users on trial, or who had a trial/subscription but are not currently paying "
-        "(expired, canceled, billing issue, etc.)."
-    ),
-    "never_subscribed": (
-        "Users who installed/signed up but never started a trial or subscription."
-    ),
+    "paid": "rc_subscription_status is active (and plan is not trial).",
+    "trial": "rc_subscription_plan is trial.",
+    "unsubscribed": "rc_subscription_status is inactive.",
 }
 
 
@@ -47,8 +41,8 @@ def build_subject(segments: UserSegments, when: datetime | None = None) -> str:
     return (
         f"Already Done — User segments ({date_label}) — "
         f"{segments.total} total "
-        f"(paid {len(segments.paid)}, trial {len(segments.trial_not_subscribed)}, "
-        f"never {len(segments.never_subscribed)})"
+        f"(paid {len(segments.paid)}, trial {len(segments.trial)}, "
+        f"unsubscribed {len(segments.unsubscribed)})"
     )
 
 
@@ -78,14 +72,8 @@ def build_segment_attachments(
 ) -> list[tuple[str, bytes]]:
     return [
         (csv_filename("paid", when), build_csv_bytes(segments.paid)),
-        (
-            csv_filename("trial_not_subscribed", when),
-            build_csv_bytes(segments.trial_not_subscribed),
-        ),
-        (
-            csv_filename("never_subscribed", when),
-            build_csv_bytes(segments.never_subscribed),
-        ),
+        (csv_filename("trial", when), build_csv_bytes(segments.trial)),
+        (csv_filename("unsubscribed", when), build_csv_bytes(segments.unsubscribed)),
     ]
 
 
@@ -123,7 +111,7 @@ def build_html_body(segments: UserSegments, when: datetime | None = None) -> str
     date_label = report_date_label(when)
     sections = []
 
-    for segment in ("paid", "trial_not_subscribed", "never_subscribed"):
+    for segment in ("paid", "trial", "unsubscribed"):
         users = getattr(segments, segment)
         label = SEGMENT_LABELS[segment]
         description = SEGMENT_DESCRIPTIONS[segment]

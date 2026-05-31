@@ -26,10 +26,10 @@ def main() -> int:
     try:
         segments = fetch_user_segments()
         logger.info(
-            "Segmented users: paid=%s trial_not_subscribed=%s never_subscribed=%s total=%s",
+            "Segmented users: paid=%s trial=%s unsubscribed=%s total=%s",
             len(segments.paid),
-            len(segments.trial_not_subscribed),
-            len(segments.never_subscribed),
+            len(segments.trial),
+            len(segments.unsubscribed),
             segments.total,
         )
     except Exception as exc:
@@ -49,10 +49,10 @@ def main() -> int:
         logger.info("Dry run complete: %s users (no email sent)", segments.total)
     else:
         logger.info(
-            "Report sent: paid=%s trial=%s never=%s to %s",
+            "Report sent: paid=%s trial=%s unsubscribed=%s to %s",
             len(segments.paid),
-            len(segments.trial_not_subscribed),
-            len(segments.never_subscribed),
+            len(segments.trial),
+            len(segments.unsubscribed),
             settings.REPORT_TO_EMAIL,
         )
     return 0
