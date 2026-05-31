@@ -20,15 +20,26 @@ REPORT_COLUMNS = [
 
 SEGMENT_LABELS: dict[SegmentName, str] = {
     "paid": "Paid subscribers",
-    "trial": "Trial (not subscribed)",
-    "unsubscribed": "Unsubscribed",
+    "trial": "Trial users",
+    "unsubscribed": "Unsubscribed (inactive)",
+    "never_subscribed": "Never trial or subscription",
 }
 
 SEGMENT_DESCRIPTIONS: dict[SegmentName, str] = {
-    "paid": "rc_subscription_status is active (and plan is not trial).",
-    "trial": "rc_subscription_plan is trial.",
+    "paid": "rc_subscription_status is active.",
+    "trial": "rc_subscription_status is trial.",
     "unsubscribed": "rc_subscription_status is inactive.",
+    "never_subscribed": (
+        "rc_subscription_status is empty or any value other than active, trial, or inactive."
+    ),
 }
+
+SEGMENT_ORDER: tuple[SegmentName, ...] = (
+    "paid",
+    "trial",
+    "unsubscribed",
+    "never_subscribed",
+)
 
 
 def report_date_label(when: datetime | None = None) -> str:
@@ -42,7 +53,7 @@ def build_subject(segments: UserSegments, when: datetime | None = None) -> str:
         f"Already Done — User segments ({date_label}) — "
         f"{segments.total} total "
         f"(paid {len(segments.paid)}, trial {len(segments.trial)}, "
-        f"unsubscribed {len(segments.unsubscribed)})"
+        f"inactive {len(segments.unsubscribed)}, never {len(segments.never_subscribed)})"
     )
 
 
@@ -71,9 +82,8 @@ def build_segment_attachments(
     segments: UserSegments, when: datetime | None = None
 ) -> list[tuple[str, bytes]]:
     return [
-        (csv_filename("paid", when), build_csv_bytes(segments.paid)),
-        (csv_filename("trial", when), build_csv_bytes(segments.trial)),
-        (csv_filename("unsubscribed", when), build_csv_bytes(segments.unsubscribed)),
+        (csv_filename(segment, when), build_csv_bytes(getattr(segments, segment)))
+        for segment in SEGMENT_ORDER
     ]
 
 
@@ -111,7 +121,7 @@ def build_html_body(segments: UserSegments, when: datetime | None = None) -> str
     date_label = report_date_label(when)
     sections = []
 
-    for segment in ("paid", "trial", "unsubscribed"):
+    for segment in SEGMENT_ORDER:
         users = getattr(segments, segment)
         label = SEGMENT_LABELS[segment]
         description = SEGMENT_DESCRIPTIONS[segment]
@@ -125,8 +135,8 @@ def build_html_body(segments: UserSegments, when: datetime | None = None) -> str
     return f"""\
 <p>Daily user segment report for <strong>{html.escape(date_label)}</strong>.</p>
 <p>
-  <strong>{segments.total}</strong> users with email across 3 marketing segments.
-  Three CSV files are attached (one per segment).
+  <strong>{segments.total}</strong> users with email across 4 marketing segments.
+  Four CSV files are attached (one per segment).
 </p>
 {sections_html}
 """

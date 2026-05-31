@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from report_service.supabase_client import get_supabase
 
-SegmentName = Literal["paid", "trial", "unsubscribed"]
+SegmentName = Literal["paid", "trial", "unsubscribed", "never_subscribed"]
 
 USER_COLUMNS = (
     "id, email, name, rc_subscription_status, rc_subscription_plan, "
@@ -18,13 +18,19 @@ class UserSegments:
     paid: list[dict[str, Any]]
     trial: list[dict[str, Any]]
     unsubscribed: list[dict[str, Any]]
+    never_subscribed: list[dict[str, Any]]
 
     @property
     def total(self) -> int:
-        return len(self.paid) + len(self.trial) + len(self.unsubscribed)
+        return (
+            len(self.paid)
+            + len(self.trial)
+            + len(self.unsubscribed)
+            + len(self.never_subscribed)
+        )
 
 
-def _normalize(value: Any) -> str:
+def _normalize_status(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
@@ -32,23 +38,23 @@ def _has_email(row: dict[str, Any]) -> bool:
     return bool(str(row.get("email") or "").strip())
 
 
-def classify_segment(row: dict[str, Any]) -> SegmentName | None:
+def classify_segment(row: dict[str, Any]) -> SegmentName:
     """
-    Segment users for marketing (mutually exclusive):
-    - trial: rc_subscription_plan is 'trial'
-    - paid: rc_subscription_status is 'active' (and not trial plan)
-    - unsubscribed: rc_subscription_status is 'inactive'
+    Segment users by rc_subscription_status only:
+    - paid: active
+    - trial: trial
+    - unsubscribed: inactive (had trial/subscription flow, not currently paying)
+    - never_subscribed: null/empty or any other status
     """
-    plan = _normalize(row.get("rc_subscription_plan"))
-    status = _normalize(row.get("rc_subscription_status"))
+    rc_status = _normalize_status(row.get("rc_subscription_status"))
 
-    if plan == "trial":
-        return "trial"
-    if status == "active":
+    if rc_status == "active":
         return "paid"
-    if status == "inactive":
+    if rc_status == "trial":
+        return "trial"
+    if rc_status == "inactive":
         return "unsubscribed"
-    return None
+    return "never_subscribed"
 
 
 def fetch_user_segments() -> UserSegments:
@@ -59,6 +65,7 @@ def fetch_user_segments() -> UserSegments:
     paid: list[dict[str, Any]] = []
     trial: list[dict[str, Any]] = []
     unsubscribed: list[dict[str, Any]] = []
+    never_subscribed: list[dict[str, Any]] = []
 
     for row in rows:
         segment = classify_segment(row)
@@ -68,10 +75,18 @@ def fetch_user_segments() -> UserSegments:
             trial.append(row)
         elif segment == "unsubscribed":
             unsubscribed.append(row)
+        else:
+            never_subscribed.append(row)
 
     sort_key = lambda row: row.get("id") or 0
     paid.sort(key=sort_key)
     trial.sort(key=sort_key)
     unsubscribed.sort(key=sort_key)
+    never_subscribed.sort(key=sort_key)
 
-    return UserSegments(paid=paid, trial=trial, unsubscribed=unsubscribed)
+    return UserSegments(
+        paid=paid,
+        trial=trial,
+        unsubscribed=unsubscribed,
+        never_subscribed=never_subscribed,
+    )

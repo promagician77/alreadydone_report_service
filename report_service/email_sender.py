@@ -31,7 +31,8 @@ def preview_report(
     print(f"[dry-run] from: {settings.REPORT_FROM_EMAIL}")
     print(f"[dry-run] paid: {len(segments.paid)}")
     print(f"[dry-run] trial: {len(segments.trial)}")
-    print(f"[dry-run] unsubscribed: {len(segments.unsubscribed)}")
+    print(f"[dry-run] unsubscribed (inactive): {len(segments.unsubscribed)}")
+    print(f"[dry-run] never_subscribed: {len(segments.never_subscribed)}")
     print(f"[dry-run] attachments:")
     for filename, content in attachments:
         print(f"  - {filename} ({len(content)} bytes)")
