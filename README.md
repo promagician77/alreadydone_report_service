@@ -1,6 +1,10 @@
-# Already Done — Daily Unsubscribed Users Report
+# Already Done — Daily User Segment Report
 
-Standalone Python service that queries Supabase for users who are **not** subscribed (`rc_subscription_status` not in `active`/`trial`) and emails **one daily report** to a single client address via SendGrid. The report includes an HTML summary and a CSV attachment.
+Standalone Python service that queries Supabase and emails **one daily report** to a single client address via SendGrid. The report splits users into **3 marketing segments**, each with its own CSV attachment:
+
+1. **Paid subscribers** — active paid subscription (not trial)
+2. **Trial (not subscribed)** — on trial, or had trial/subscription but not currently paying
+3. **Never trial or subscription** — installed/signed up but never entered the subscription flow
 
 This runs as a **separate process** from the FastAPI backend (`alreadydone_backend`).
 
@@ -42,58 +46,64 @@ REPORT_DRY_RUN=true .venv/bin/python daily_unsubscribed_report.py
 Recommended path on the server: `/root/alreadyapp-report-service`
 
 ```bash
-# Copy or clone this folder to the VPS
-cd /root/alreadyapp-report-service
+cd /root/alreadydone_report_service   # or your deploy path
 
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+python3 -m venv venv
+venv/bin/pip install -r requirements.txt
 cp .env.example .env
-# Fill in SUPABASE_*, SENDGRID_*, REPORT_* values
-
 mkdir -p logs
 
-# Test before enabling timer
-REPORT_DRY_RUN=true .venv/bin/python daily_unsubscribed_report.py
+REPORT_DRY_RUN=true venv/bin/python daily_unsubscribed_report.py
 
-# Install systemd units (adjust paths in unit files if deploy dir differs)
 sudo cp deploy/alreadyapp-unsubscribed-report.service /etc/systemd/system/
 sudo cp deploy/alreadyapp-unsubscribed-report.timer /etc/systemd/system/
-
 sudo systemctl daemon-reload
 sudo systemctl enable --now alreadyapp-unsubscribed-report.timer
 ```
 
-Default schedule: **08:00 UTC daily**. Edit `OnCalendar` in `deploy/alreadyapp-unsubscribed-report.timer` to change it.
+Default schedule: **08:00** in the **server's local timezone**. Check with `timedatectl` and `systemctl list-timers`.
 
 ### Useful commands
 
 ```bash
-# Trigger a run immediately (same as timer would)
 sudo systemctl start alreadyapp-unsubscribed-report.service
-
-# Timer status
 sudo systemctl list-timers | grep unsubscribed
-sudo systemctl status alreadyapp-unsubscribed-report.timer
-
-# Logs
-tail -f /root/alreadyapp-report-service/logs/report.log
+tail -f logs/report.log
 ```
 
-## Unsubscribed user definition
+## Segment definitions
 
-Matches the mobile app logic:
+Only users with a non-empty `email` are included.
 
-- **Subscribed:** `rc_subscription_status` is `active` or `trial`
-- **Unsubscribed:** any other value, or null/empty
+### 1. Paid subscribers
 
-Only users with a non-empty `email` are included in the report.
+- `rc_subscription_status` is `active`, or
+- legacy `subscription_status` is `active`
 
-## Report columns
+### 2. Trial (not subscribed)
 
-- ID
-- Email
-- Name
-- Status (`rc_subscription_status`)
-- Plan (`rc_subscription_plan`)
-- Created At
-- Provider (`subscription_provider`)
+Users who engaged with subscription but are **not** currently paying, including:
+
+- Currently on trial (`trial` / `trialing`)
+- Expired, canceled, billing issue, paused, etc.
+- Has `rc_customer_id` or `stripe_subscription_id` without active paid status
+
+Note: users who paid and later canceled are grouped here (no historical trial flag in the DB).
+
+### 3. Never trial or subscription
+
+- No meaningful subscription status
+- No `rc_customer_id` or `stripe_subscription_id`
+
+## Email contents
+
+- **Subject:** `Already Done — User segments (YYYY-MM-DD) — N total (paid X, trial Y, never Z)`
+- **Body:** HTML summary with 3 sections (first 25 rows each)
+- **Attachments:**
+  - `paid_YYYY-MM-DD.csv`
+  - `trial_not_subscribed_YYYY-MM-DD.csv`
+  - `never_subscribed_YYYY-MM-DD.csv`
+
+## Report columns (each CSV)
+
+- ID, Email, Name, RC Status, RC Plan, Stripe Status, Created At, Provider

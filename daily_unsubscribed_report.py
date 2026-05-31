@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Daily report: unsubscribed Supabase users emailed to a single client address."""
+"""Daily report: user segments emailed to a single client address."""
 
 import logging
 import sys
 
 from report_service.config import settings
 from report_service.email_sender import deliver_report
-from report_service.report_builder import build_csv_bytes, build_html_body
-from report_service.users import fetch_unsubscribed_users
+from report_service.report_builder import build_html_body, build_segment_attachments
+from report_service.users import fetch_user_segments
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,27 +24,35 @@ def main() -> int:
         return 1
 
     try:
-        users = fetch_unsubscribed_users()
-        logger.info("Fetched %s unsubscribed users", len(users))
+        segments = fetch_user_segments()
+        logger.info(
+            "Segmented users: paid=%s trial_not_subscribed=%s never_subscribed=%s total=%s",
+            len(segments.paid),
+            len(segments.trial_not_subscribed),
+            len(segments.never_subscribed),
+            segments.total,
+        )
     except Exception as exc:
         logger.exception("Failed to fetch users from Supabase: %s", exc)
         return 1
 
-    html_body = build_html_body(users)
-    csv_bytes = build_csv_bytes(users)
+    html_body = build_html_body(segments)
+    attachments = build_segment_attachments(segments)
 
     try:
-        deliver_report(html_body, csv_bytes, len(users))
+        deliver_report(html_body, attachments, segments)
     except Exception as exc:
         logger.exception("Failed to deliver report: %s", exc)
         return 1
 
     if settings.REPORT_DRY_RUN:
-        logger.info("Dry run complete: %s users (no email sent)", len(users))
+        logger.info("Dry run complete: %s users (no email sent)", segments.total)
     else:
         logger.info(
-            "Report sent: %s users to %s",
-            len(users),
+            "Report sent: paid=%s trial=%s never=%s to %s",
+            len(segments.paid),
+            len(segments.trial_not_subscribed),
+            len(segments.never_subscribed),
             settings.REPORT_TO_EMAIL,
         )
     return 0
