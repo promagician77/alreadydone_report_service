@@ -18,7 +18,6 @@ REPORT_COLUMNS = [
     ("name", "Name"),
     ("rc_subscription_status", "RC Status"),
     ("rc_subscription_plan", "RC Plan"),
-    ("created_at", "Created At"),
 ]
 
 SEGMENT_LABELS: dict[SegmentName, str] = {
@@ -150,6 +149,8 @@ def build_html_body(segments: UserSegments, when: datetime | None = None) -> str
     sections = []
 
     for segment in SEGMENT_ORDER:
+        if segment == "never_subscribed":
+            continue
         users = getattr(segments, segment)
         label = SEGMENT_LABELS[segment]
         description = SEGMENT_DESCRIPTIONS[segment]
