@@ -5,8 +5,12 @@ import html
 import io
 from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from report_service.users import SegmentName, UserSegments
+
+# Pacific Time (PST/PDT) — matches systemd timer schedule
+REPORT_TIMEZONE = ZoneInfo("America/Los_Angeles")
 
 REPORT_COLUMNS = [
     ("id", "ID"),
@@ -43,7 +47,12 @@ SEGMENT_ORDER: tuple[SegmentName, ...] = (
 
 
 def report_date_label(when: datetime | None = None) -> str:
-    dt = when or datetime.now(timezone.utc)
+    if when is None:
+        dt = datetime.now(timezone.utc).astimezone(REPORT_TIMEZONE)
+    elif when.tzinfo is None:
+        dt = when.replace(tzinfo=timezone.utc).astimezone(REPORT_TIMEZONE)
+    else:
+        dt = when.astimezone(REPORT_TIMEZONE)
     return dt.strftime("%Y-%m-%d")
 
 

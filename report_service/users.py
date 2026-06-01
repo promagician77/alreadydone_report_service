@@ -18,7 +18,7 @@ class UserSegments:
     paid: list[dict[str, Any]]
     trial: list[dict[str, Any]]
     unsubscribed: list[dict[str, Any]]
-    never_subscribed: list[dict[str, Any]]
+    never_subscribed: list[dict[str, Any]] 
 
     @property
     def total(self) -> int:

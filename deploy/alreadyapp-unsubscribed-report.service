@@ -7,11 +7,11 @@ Wants=network-online.target
 Type=oneshot
 User=root
 Group=root
-WorkingDirectory=/root/alreadyapp-report-service
-EnvironmentFile=-/root/alreadyapp-report-service/.env
-ExecStart=/root/alreadyapp-report-service/.venv/bin/python daily_unsubscribed_report.py
-StandardOutput=append:/root/alreadyapp-report-service/logs/report.log
-StandardError=append:/root/alreadyapp-report-service/logs/report.log
+WorkingDirectory=/root/alreadydone_report_service
+EnvironmentFile=-/root/alreadydone_report_service/.env
+ExecStart=/root/alreadydone_report_service/venv/bin/python daily_unsubscribed_report.py
+StandardOutput=append:/root/alreadydone_report_service/logs/report.log
+StandardError=append:/root/alreadydone_report_service/logs/report.log
 
 [Install]
 WantedBy=multi-user.target
