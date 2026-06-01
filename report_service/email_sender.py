@@ -14,7 +14,7 @@ from sendgrid.helpers.mail import (
 )
 
 from report_service.config import settings
-from report_service.report_builder import build_subject
+from report_service.report_builder import build_plain_body, build_subject
 from report_service.users import UserSegments
 
 logger = logging.getLogger(__name__)
@@ -47,12 +47,14 @@ def send_report(
     subject: str,
     html_body: str,
     attachments: list[tuple[str, bytes]],
+    segments: UserSegments,
 ) -> None:
     message = Mail(
         from_email=settings.REPORT_FROM_EMAIL,
         to_emails=settings.REPORT_TO_EMAIL,
         subject=subject,
         html_content=html_body,
+        plain_text_content=build_plain_body(segments),
     )
 
     for filename, csv_bytes in attachments:
@@ -86,4 +88,4 @@ def deliver_report(
     if settings.REPORT_DRY_RUN:
         preview_report(subject, html_body, attachments, segments)
         return
-    send_report(subject, html_body, attachments)
+    send_report(subject, html_body, attachments, segments)
