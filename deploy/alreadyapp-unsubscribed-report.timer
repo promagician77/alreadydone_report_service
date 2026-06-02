@@ -1,9 +1,8 @@
 [Unit]
-Description=Run Already Done user segment report daily at 05:00 Pacific (America/Los_Angeles)
+Description=Run Already Done user segment report daily at 12:00 UTC (05:00 PDT / 04:00 PST)
 
 [Timer]
-OnCalendar=*-*-* 05:00:00
-Timezone=America/Los_Angeles
+OnCalendar=*-*-* 12:00:00
 Persistent=true
 Unit=alreadyapp-unsubscribed-report.service
 
