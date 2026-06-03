@@ -7,10 +7,12 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import (
     Attachment,
     Disposition,
+    Email,
     FileContent,
     FileName,
     FileType,
     Mail,
+    Personalization,
 )
 
 from report_service.config import settings
@@ -49,13 +51,17 @@ def send_report(
     attachments: list[tuple[str, bytes]],
     segments: UserSegments,
 ) -> None:
+    to_emails = [e.strip() for e in settings.REPORT_TO_EMAIL.split(",") if e.strip()]
+    personalization = Personalization()
+    for addr in to_emails:
+        personalization.add_to(Email(addr))
     message = Mail(
         from_email=settings.REPORT_FROM_EMAIL,
-        to_emails=settings.REPORT_TO_EMAIL,
         subject=subject,
         html_content=html_body,
         plain_text_content=build_plain_body(segments),
     )
+    message.add_personalization(personalization)
 
     for filename, csv_bytes in attachments:
         encoded_csv = base64.b64encode(csv_bytes).decode("utf-8")
@@ -72,7 +78,7 @@ def send_report(
     logger.info(
         "SendGrid response status=%s to=%s attachments=%s",
         response.status_code,
-        settings.REPORT_TO_EMAIL,
+        to_emails,
         len(attachments),
     )
     if response.status_code >= 400:
